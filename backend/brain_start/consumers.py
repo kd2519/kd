@@ -8,6 +8,101 @@ import asyncio
 import uuid
 from django.db.models import Max
 from django.conf import settings
+from asgiref.sync import sync_to_async
+from .views import get_historical_records
+
+
+# ========== 新增：同步获取历史记录（避免循环导入）==========
+def _compute_sleep_metrics_sync(recording):
+    """同步计算睡眠指标（时长、效率等）"""
+    from .models import EEGDataPoint
+    from django.db.models import Sum
+    data_points = EEGDataPoint.objects.filter(recording=recording).order_by('time')
+    if not data_points.exists():
+        return {
+            'delta_pct': 0, 'theta_pct': 0, 'alpha_pct': 0,
+            'beta_pct': 0, 'gamma_pct': 0, 'sleep_score': 0,
+            'total_duration_min': 0, 'sleep_duration_min': 0,
+            'wake_duration_min': 0, 'sleep_efficiency': 0
+        }
+
+    sum_delta = data_points.aggregate(Sum('delta'))['delta__sum'] or 0
+    sum_theta = data_points.aggregate(Sum('theta'))['theta__sum'] or 0
+    sum_alpha = (data_points.aggregate(Sum('low_alpha'))['low_alpha__sum'] or 0) + \
+                (data_points.aggregate(Sum('high_alpha'))['high_alpha__sum'] or 0)
+    sum_beta = (data_points.aggregate(Sum('low_beta'))['low_beta__sum'] or 0) + \
+               (data_points.aggregate(Sum('high_beta'))['high_beta__sum'] or 0)
+    sum_gamma = (data_points.aggregate(Sum('low_gamma'))['low_gamma__sum'] or 0) + \
+                (data_points.aggregate(Sum('high_gamma'))['high_gamma__sum'] or 0)
+
+    total = sum_delta + sum_theta + sum_alpha + sum_beta + sum_gamma
+    if total == 0:
+        return {
+            'delta_pct': 0, 'theta_pct': 0, 'alpha_pct': 0,
+            'beta_pct': 0, 'gamma_pct': 0, 'sleep_score': 0,
+            'total_duration_min': 0, 'sleep_duration_min': 0,
+            'wake_duration_min': 0, 'sleep_efficiency': 0
+        }
+
+    delta_pct = sum_delta / total * 100
+    theta_pct = sum_theta / total * 100
+    alpha_pct = sum_alpha / total * 100
+    beta_pct = sum_beta / total * 100
+    gamma_pct = sum_gamma / total * 100
+    sleep_score = min(100, int(0.4 * delta_pct + 0.3 * theta_pct + 0.2 * (100 - beta_pct) + 0.1 * (100 - gamma_pct)))
+
+    # 时长与效率
+    first_time = data_points.first().time
+    last_time = data_points.last().time
+    total_seconds = (last_time - first_time).total_seconds()
+    total_duration_min = total_seconds / 60.0 if total_seconds > 0 else 0
+    wake_ratio = (beta_pct + gamma_pct) / 100.0
+    wake_duration_min = total_duration_min * wake_ratio
+    sleep_duration_min = total_duration_min - wake_duration_min
+    sleep_efficiency = (sleep_duration_min / total_duration_min * 100) if total_duration_min > 0 else 0
+
+    return {
+        'delta_pct': delta_pct,
+        'theta_pct': theta_pct,
+        'alpha_pct': alpha_pct,
+        'beta_pct': beta_pct,
+        'gamma_pct': gamma_pct,
+        'sleep_score': sleep_score,
+        'total_duration_min': round(total_duration_min, 1),
+        'sleep_duration_min': round(sleep_duration_min, 1),
+        'wake_duration_min': round(wake_duration_min, 1),
+        'sleep_efficiency': round(sleep_efficiency, 1)
+    }
+
+
+def _get_historical_records_sync(exclude_recording_id, limit=5):
+    """同步获取历史记录"""
+    import uuid
+    from .models import EEGRecord
+    if isinstance(exclude_recording_id, str):
+        exclude_uuid = uuid.UUID(exclude_recording_id)
+    else:
+        exclude_uuid = exclude_recording_id
+
+    records = EEGRecord.objects.exclude(recording_id=exclude_uuid).order_by('-start_time')[:limit]
+    historical = []
+    for rec in records:
+        metrics = _compute_sleep_metrics_sync(rec)
+        historical.append({
+            'recording_id': str(rec.recording_id),
+            'start_time': rec.start_time,
+            'delta_pct': metrics['delta_pct'],
+            'theta_pct': metrics['theta_pct'],
+            'alpha_pct': metrics['alpha_pct'],
+            'beta_pct': metrics['beta_pct'],
+            'gamma_pct': metrics['gamma_pct'],
+            'sleep_score': metrics['sleep_score']
+        })
+    return historical
+
+
+# ========== 辅助函数结束 ==========
+
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -366,8 +461,16 @@ class EEGDataConsumer(AsyncWebsocketConsumer):
             api_key = data.get('api_key', settings.DEFAULT_API_KEY)
             logger.info(f"正在分析数据: {current_log_file}")
 
-            # 执行分析
-            analyzer = EEGAnalyzer(current_log_file, api_key)
+            # ================== 新增：获取历史记录（如果有当前记录）==================
+            historical_records = []
+            if current_recording is not None:
+                # 使用 sync_to_async 包装同步函数
+                get_historical = sync_to_async(_get_historical_records_sync)
+                historical_records = await get_historical(current_recording.recording_id, limit=5)
+            # ===================================================================
+
+            # 执行分析（传入历史记录）
+            analyzer = EEGAnalyzer(current_log_file, api_key, historical_records=historical_records)
             result = analyzer.analyze()  # 现在 result 是一个字典
 
             # 检查分析结果
@@ -386,7 +489,7 @@ class EEGDataConsumer(AsyncWebsocketConsumer):
                 'type': 'analysis_result',
                 'success': True,
                 'content': report_content,
-                'path': report_filename  # 注意前端期望的字段是 path 还是 filename？根据之前代码，前端期望 path 用于加载报告
+                'path': report_filename
             }))
 
         except Exception as e:
@@ -419,3 +522,4 @@ class EEGDataConsumer(AsyncWebsocketConsumer):
     #             'type': 'error',
     #             'message': error_msg
     #         }))
+

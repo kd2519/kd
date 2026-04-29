@@ -1,0 +1,435 @@
+
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <title>睡眠分析报告 20260429_130752</title>
+                    <style>
+                        /* 全局重置与基础色调 */
+                        * {
+                            margin: 0;
+                            padding: 0;
+                            box-sizing: border-box;
+                        }
+                        body.body_report {
+                            background: linear-gradient(135deg, #0a2f6c 0%, #144a7c 100%);
+                            font-family: 'Segoe UI', 'Roboto', 'Microsoft YaHei', sans-serif;
+                            margin: 0;
+                            padding: 30px 20px;
+                            line-height: 1.6;
+                            color: #eef4ff;
+                        }
+                        /* 主容器 - 增加最大宽度和居中 */
+                        .report-container {
+                            max-width: 1400px;
+                            margin: 0 auto;
+                        }
+                        /* 头部区域 */
+                        .header_compant {
+                            background: linear-gradient(135deg, rgba(30,90,156,0.9) 0%, rgba(44,123,192,0.9) 100%);
+                            backdrop-filter: blur(4px);
+                            padding: 30px;
+                            border-radius: 28px;
+                            text-align: center;
+                            margin-bottom: 30px;
+                            box-shadow: 0 12px 25px rgba(0,0,0,0.3);
+                            border: 1px solid rgba(255,255,255,0.2);
+                        }
+                        .header_compant h1 {
+                            font-size: 2rem;
+                            margin-bottom: 10px;
+                            letter-spacing: 1px;
+                        }
+                        .header_compant p {
+                            font-size: 0.9rem;
+                            opacity: 0.9;
+                        }
+                        /* 通用卡片样式 */
+                        .section_compant {
+                            background: rgba(20, 40, 70, 0.75);
+                            backdrop-filter: blur(4px);
+                            padding: 25px;
+                            margin: 25px 0;
+                            border-radius: 24px;
+                            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+                            border: 1px solid rgba(255,255,255,0.2);
+                            transition: transform 0.2s ease, box-shadow 0.2s ease;
+                        }
+                        .section_compant:hover {
+                            transform: translateY(-2px);
+                            box-shadow: 0 12px 25px rgba(0,0,0,0.3);
+                        }
+                        /* 标题样式统一 */
+                        .biaoti {
+                            color: #ffd966;
+                            border-left: 5px solid #ffaa33;
+                            padding-left: 18px;
+                            margin-top: 0;
+                            margin-bottom: 20px;
+                            font-size: 1.6rem;
+                            font-weight: 600;
+                        }
+                        h3, h4 {
+                            color: #ffd966;
+                            margin: 0 0 15px 0;
+                        }
+                        /* 表格样式 - 更现代、响应式 */
+                        .stats-table_compant {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin: 20px 0;
+                            font-size: 0.9rem;
+                            border-radius: 16px;
+                            overflow: hidden;
+                            background: rgba(255,255,255,0.05);
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                        }
+                        .stats-table_compant th,
+                        .stats-table_compant td {
+                            padding: 12px 15px;
+                            text-align: left;
+                            border-bottom: 1px solid rgba(255,255,255,0.15);
+                            border-right: 1px solid rgba(255,255,255,0.1);
+                        }
+                        .stats-table_compant th:last-child,
+                        .stats-table_compant td:last-child {
+                            border-right: none;
+                        }
+                        .stats-table_compant th {
+                            background: rgba(30, 90, 156, 0.9);
+                            color: white;
+                            font-weight: 600;
+                            font-size: 0.9rem;
+                            text-transform: uppercase;
+                            letter-spacing: 0.5px;
+                        }
+                        .stats-table_compant tr:hover {
+                            background: rgba(255,255,255,0.1);
+                        }
+                        .stats-table_compant tbody tr:nth-child(even) {
+                            background: rgba(255,255,255,0.03);
+                        }
+                        /* 睡眠分析列表优化 */
+                        .sleep-analysis ul {
+                            list-style: none;
+                            padding: 0;
+                            margin: 20px 0;
+                            display: flex;
+                            flex-wrap: wrap;
+                            gap: 12px;
+                        }
+                        .sleep-analysis li {
+                            background: rgba(255,255,255,0.15);
+                            padding: 8px 18px;
+                            border-radius: 40px;
+                            font-size: 0.9rem;
+                            backdrop-filter: blur(4px);
+                            transition: background 0.2s;
+                        }
+                        .sleep-analysis li:hover {
+                            background: rgba(255,255,255,0.25);
+                        }
+                        .sleep-score {
+                            text-align: center;
+                            margin-top: 25px;
+                            font-size: 1.2rem;
+                            font-weight: bold;
+                            background: rgba(0,0,0,0.2);
+                            padding: 15px;
+                            border-radius: 40px;
+                        }
+                        /* 图表容器美化 */
+                        .chart-container {
+                            background: rgba(0,0,0,0.2);
+                            border-radius: 20px;
+                            padding: 15px;
+                            margin: 20px 0;
+                        }
+                        /* 对比分析特殊样式 */
+                        .compare-badge {
+                            display: inline-block;
+                            background: #ffaa33;
+                            color: #0a2f6c;
+                            padding: 4px 12px;
+                            border-radius: 20px;
+                            font-size: 0.8rem;
+                            font-weight: bold;
+                            margin-left: 12px;
+                        }
+                        /* AI评估内容样式 */
+                        .ai-content {
+                            background: rgba(0,0,0,0.2);
+                            padding: 20px;
+                            border-radius: 20px;
+                            margin-top: 10px;
+                        }
+                        .ai-content p {
+                            margin: 10px 0;
+                        }
+                        .ai-content strong {
+                            color: #ffd966;
+                        }
+                        /* 响应式设计 */
+                        @media (max-width: 768px) {
+                            body.body_report {
+                                padding: 15px;
+                            }
+                            .header_compant h1 {
+                                font-size: 1.4rem;
+                            }
+                            .section_compant {
+                                padding: 18px;
+                            }
+                            .stats-table_compant th,
+                            .stats-table_compant td {
+                                padding: 8px 10px;
+                                font-size: 0.75rem;
+                            }
+                            .sleep-analysis li {
+                                font-size: 0.75rem;
+                                padding: 5px 12px;
+                            }
+                            .biaoti {
+                                font-size: 1.3rem;
+                            }
+                            .chart-container {
+                                padding: 8px;
+                            }
+                        }
+                        /* 打印样式 */
+                        @media print {
+                            body.body_report {
+                                background: white;
+                                color: black;
+                                padding: 0;
+                            }
+                            .section_compant {
+                                background: white;
+                                border: 1px solid #ccc;
+                                box-shadow: none;
+                                color: black;
+                            }
+                            .header_compant {
+                                background: #f0f0f0;
+                                color: black;
+                            }
+                            .stats-table_compant th {
+                                background: #ccc;
+                                color: black;
+                            }
+                            .biaoti {
+                                color: #0a2f6c;
+                            }
+                            .chart-container {
+                                break-inside: avoid;
+                            }
+                            .stats-table_compant tr:hover {
+                                background: none;
+                            }
+                        }
+                    </style>
+                    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+                </head>
+                <body class="body_report">
+                    <div class="report-container">
+                        <!-- 头部 -->
+                        <div class="header_compant">
+                            <h1 class="biaoti">🧠 睡眠脑电分析报告</h1>
+                            <p>生成时间: 2026-04-29 13:07:52 | 文件: temp_analysis_data_8d1b2319-d372-4adc-a5e0-8ee6a847e832.txt</p>
+                        </div>
+                
+                        <div class="section_compant">
+        <div class='stats-section'>
+            <h3>📊 数据统计概览</h3>
+            <table class='stats-table_compant'>
+                <thead>
+                    <tr>
+                        <th>频段</th>
+                        <th>平均值</th>
+                        <th>标准差</th>
+                        <th>最小值</th>
+                        <th>最大值</th>
+                    </tr>
+                </thead>
+                <tbody>
+        
+                <tr>
+                    <td><strong>Delta</strong></td>
+                    <td>52143.38</td>
+                    <td>195091.48</td>
+                    <td>420.00</td>
+                    <td>3023974.00</td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Theta</strong></td>
+                    <td>26180.99</td>
+                    <td>92139.59</td>
+                    <td>780.00</td>
+                    <td>2136420.00</td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Alpha</strong></td>
+                    <td>4896.01</td>
+                    <td>9136.97</td>
+                    <td>24.00</td>
+                    <td>197386.00</td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Beta</strong></td>
+                    <td>2935.42</td>
+                    <td>4674.92</td>
+                    <td>130.00</td>
+                    <td>135226.00</td>
+                </tr>
+            
+                <tr>
+                    <td><strong>Gamma</strong></td>
+                    <td>1892.38</td>
+                    <td>3259.73</td>
+                    <td>185.00</td>
+                    <td>82464.00</td>
+                </tr>
+            
+                </tbody>
+            </table>
+        </div>
+        </div>
+                
+                        <div class="section_compant">
+                            <div class='sleep-analysis'><h3>睡眠阶段分布</h3><ul><li>深睡期(Delta): 59.2%</li><li>浅睡期(Theta): 29.7%</li><li>REM期(Alpha): 5.6%</li><li>清醒期(Beta): 3.3%</li><li>活跃期(Gamma): 2.1%</li></ul><div class='sleep-score'><h4>睡眠质量评分: <span style='color: #52c41a'>61/100 (良好)</span></h4></div></div>
+                             <div id="sleepPieChart" style="width: 100%; height: 400px; min-height: 400px;"></div>
+                        </div>
+                
+                        
+                <div class="section_compant">
+                    <h2 class='biaoti'>📈 历史对比分析</h2>
+                    <div style="margin-bottom:20px;">
+                        <p><strong>改善评估：</strong> <span style='color:#faad14'>睡眠质量略有提升</span></p>
+                        <p><strong>当前评分 vs 历史平均：</strong> 61.0 vs 57.0 
+                        (+4.0分)</p>
+                    </div>
+                    <div id="scoreTrendChart" style="width:100%; height:400px; margin-bottom:30px;"></div>
+                    <div id="stageCompareChart" style="width:100%; height:400px; margin-bottom:20px;"></div>
+                    <table class="stats-table_compant" style="margin-top:20px;">
+                        <thead>
+                            <tr>
+                                <th>对比项</th>
+                                <th>睡眠评分</th>
+                                <th>深睡期(Delta)</th>
+                                <th>浅睡期(Theta)</th>
+                                <th>REM期(Alpha)</th>
+                                <th>清醒期(Beta)</th>
+                                <th>活跃期(Gamma)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            
+                <tr>
+                    <td><strong>当前</strong></td>
+                    <td>61.0</td>
+                    <td>59.2%</td>
+                    <td>29.7%</td>
+                    <td>5.6%</td>
+                    <td>3.3%</td>
+                    <td>2.1%</td>
+                </tr>
+                <tr style="background-color: rgba(255,255,255,0.1);">
+                    <td><strong>历史平均<br>(5次)</strong></td>
+                    <td>57.0</td>
+                    <td>53.3%</td>
+                    <td>26.8%</td>
+                    <td>10.0%</td>
+                    <td>6.0%</td>
+                    <td>3.9%</td>
+                </tr>
+                
+                        </tbody>
+                    </table>
+                </div>
+                   <!-- 对比分析部分已包含内部样式和图表容器 -->
+                
+                        <div class="section_compant">
+                            <h2 class='biaoti'>🤖 AI智能评估</h2>
+                            <div class="ai-content">
+                                <p><strong>睡眠质量评估：优秀</strong><br>深睡比例正常（约25%），浅睡阶段稳定（约30%），REM期占比合理，无明显异常脑电活动。<br><strong>健康建议</strong>：保持当前作息规律，睡前避免电子设备使用，可适当增加轻度运动。</p>
+                            </div>
+                        </div>
+                    </div>
+                    <script>
+                        // 原有饼图代码
+                        var pieChart = echarts.init(document.getElementById('sleepPieChart'));
+                        pieChart.setOption({
+                            color: ['#1e5a9c', '#2c7bc0', '#5fa3dd', '#8bc1f0', '#b3d4ff'],
+                            title: { text: '睡眠阶段分布', left: 'center', textStyle: { fontSize: 16, fontWeight: 'bold', color: '#ffd966' } },
+                            tooltip: { trigger: 'item', formatter: '{a} <br/>{b}: {c}%' },
+                            legend: { orient: 'vertical', left: 'left', textStyle: { color: '#eef4ff' }, data: ['深睡期 (Delta)', '浅睡期 (Theta)', 'REM期 (Alpha)', '清醒期 (Beta)', '活跃期 (Gamma)'] },
+                            series: [{
+                                name: '睡眠阶段',
+                                type: 'pie',
+                                radius: '55%',
+                                center: ['60%', '50%'],
+                                data: [
+                                    { value: 59.2, name: '深睡期 (Delta)' },
+                                    { value: 29.7, name: '浅睡期 (Theta)' },
+                                    { value: 5.6, name: 'REM期 (Alpha)' },
+                                    { value: 3.3, name: '清醒期 (Beta)' },
+                                    { value: 2.1, name: '活跃期 (Gamma)' }
+                                ],
+                                label: { show: true, formatter: '{b}: {d}%', color: '#eef4ff' },
+                            }]
+                        });
+                        
+                <script>
+                    // 睡眠评分趋势图
+                    var scoreChart = echarts.init(document.getElementById('scoreTrendChart'));
+                    scoreChart.setOption({
+                        title: { text: '睡眠评分历史趋势', left: 'center', textStyle: { color: '#ffd966' } },
+                        tooltip: { trigger: 'axis' },
+                        xAxis: { type: 'category', data: ["04-28 17:09", "04-28 17:03", "04-28 16:56", "04-28 16:46", "04-28 16:44"], name: '测试时间', axisLabel: { rotate: 30, color: '#eef4ff' } },
+                        yAxis: { type: 'value', name: '睡眠评分', min: 0, max: 100, axisLabel: { color: '#eef4ff' } },
+                        series: [{
+                            name: '睡眠评分',
+                            type: 'line',
+                            data: [57, 57, 57, 57, 57],
+                            smooth: true,
+                            lineStyle: { color: '#ffd966', width: 3 },
+                            symbol: 'circle',
+                            symbolSize: 8,
+                            itemStyle: { color: '#ffaa33' },
+                            markPoint: {
+                                data: [
+                                    { type: 'max', name: '最高分' },
+                                    { type: 'min', name: '最低分' }
+                                ]
+                            }
+                        }],
+                        backgroundColor: 'transparent',
+                        grid: { borderWidth: 0, containLabel: true },
+                        textStyle: { color: '#eef4ff' }
+                    });
+
+                    // 阶段对比柱状图（当前 vs 历史平均）
+                    var stageChart = echarts.init(document.getElementById('stageCompareChart'));
+                    stageChart.setOption({
+                        title: { text: '睡眠阶段分布对比', left: 'center', textStyle: { color: '#ffd966' } },
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                        legend: { data: ['当前', '历史平均'], textStyle: { color: '#eef4ff' }, top: 30 },
+                        xAxis: { type: 'category', data: ['深睡期(Delta)', '浅睡期(Theta)', 'REM期(Alpha)', '清醒期(Beta)', '活跃期(Gamma)'], axisLabel: { rotate: 20, color: '#eef4ff' } },
+                        yAxis: { type: 'value', name: '百分比 (%)', axisLabel: { color: '#eef4ff' } },
+                        series: [
+                            { name: '当前', type: 'bar', data: [59.221421168831334, 29.734844157544337, 5.560604310971734, 3.3338789713003454, 2.1492513913522555], itemStyle: { color: '#5fa3dd' } },
+                            { name: '历史平均', type: 'bar', data: [53.33079402326483, 26.77718328574131, 10.015524145017496, 6.005042288609214, 3.871456257367151], itemStyle: { color: '#b3d4ff' } }
+                        ],
+                        backgroundColor: 'transparent',
+                        grid: { borderWidth: 0, containLabel: true },
+                        textStyle: { color: '#eef4ff' }
+                    });
+                </script>
+                   <!-- 对比图脚本 -->
+                    </script>
+                </body>
+            </html>
+            

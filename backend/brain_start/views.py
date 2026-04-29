@@ -16,6 +16,113 @@ from .models import EEGDataPoint, EEGRecord
 from django.conf import settings
 logger = logging.getLogger(__name__)
 from django.conf import settings
+from .models import EEGRecord, EEGDataPoint
+from django.db.models import Sum
+
+
+# ========== 新增辅助函数：计算睡眠指标与获取历史记录 ==========
+def compute_sleep_metrics(recording):
+    """
+    根据 EEGRecord 计算睡眠指标：各波段百分比、睡眠评分、时长/效率等
+    """
+    from django.db.models import Sum
+    from .models import EEGDataPoint
+    data_points = EEGDataPoint.objects.filter(recording=recording).order_by('time')
+    if not data_points.exists():
+        return {
+            'delta_pct': 0, 'theta_pct': 0, 'alpha_pct': 0,
+            'beta_pct': 0, 'gamma_pct': 0, 'sleep_score': 0,
+            'total_duration_min': 0, 'sleep_duration_min': 0,
+            'wake_duration_min': 0, 'sleep_efficiency': 0
+        }
+
+    # 计算各波段总和
+    sum_delta = data_points.aggregate(Sum('delta'))['delta__sum'] or 0
+    sum_theta = data_points.aggregate(Sum('theta'))['theta__sum'] or 0
+    sum_alpha = (data_points.aggregate(Sum('low_alpha'))['low_alpha__sum'] or 0) + \
+                (data_points.aggregate(Sum('high_alpha'))['high_alpha__sum'] or 0)
+    sum_beta = (data_points.aggregate(Sum('low_beta'))['low_beta__sum'] or 0) + \
+               (data_points.aggregate(Sum('high_beta'))['high_beta__sum'] or 0)
+    sum_gamma = (data_points.aggregate(Sum('low_gamma'))['low_gamma__sum'] or 0) + \
+                (data_points.aggregate(Sum('high_gamma'))['high_gamma__sum'] or 0)
+
+    total = sum_delta + sum_theta + sum_alpha + sum_beta + sum_gamma
+    if total == 0:
+        return {
+            'delta_pct': 0, 'theta_pct': 0, 'alpha_pct': 0,
+            'beta_pct': 0, 'gamma_pct': 0, 'sleep_score': 0,
+            'total_duration_min': 0, 'sleep_duration_min': 0,
+            'wake_duration_min': 0, 'sleep_efficiency': 0
+        }
+
+    delta_pct = sum_delta / total * 100
+    theta_pct = sum_theta / total * 100
+    alpha_pct = sum_alpha / total * 100
+    beta_pct = sum_beta / total * 100
+    gamma_pct = sum_gamma / total * 100
+
+    # 睡眠评分算法（与 eeg_analyzer 中 _analyze_sleep 保持一致）
+    sleep_score = min(100, int(0.4 * delta_pct + 0.3 * theta_pct + 0.2 * (100 - beta_pct) + 0.1 * (100 - gamma_pct)))
+
+    # ========== 新增：时长与效率计算 ==========
+    # 总记录时长（分钟）
+    first_time = data_points.first().time
+    last_time = data_points.last().time
+    total_seconds = (last_time - first_time).total_seconds()
+    total_duration_min = total_seconds / 60.0 if total_seconds > 0 else 0
+
+    # 清醒期占比 = Beta + Gamma 的能量比例
+    wake_ratio = (beta_pct + gamma_pct) / 100.0   # 转为小数
+    wake_duration_min = total_duration_min * wake_ratio
+    sleep_duration_min = total_duration_min - wake_duration_min
+    sleep_efficiency = (sleep_duration_min / total_duration_min * 100) if total_duration_min > 0 else 0
+
+    return {
+        'delta_pct': delta_pct,
+        'theta_pct': theta_pct,
+        'alpha_pct': alpha_pct,
+        'beta_pct': beta_pct,
+        'gamma_pct': gamma_pct,
+        'sleep_score': sleep_score,
+        'total_duration_min': round(total_duration_min, 1),
+        'sleep_duration_min': round(sleep_duration_min, 1),
+        'wake_duration_min': round(wake_duration_min, 1),
+        'sleep_efficiency': round(sleep_efficiency, 1)
+    }
+
+
+def get_historical_records(exclude_recording_id, limit=5):
+    """
+    获取最近的历史记录（排除当前记录），返回包含指标和基本信息的列表
+    """
+    import uuid
+    from .models import EEGRecord
+    # 将 recording_id 转换为 UUID 对象（如果是字符串）
+    if isinstance(exclude_recording_id, str):
+        exclude_uuid = uuid.UUID(exclude_recording_id)
+    else:
+        exclude_uuid = exclude_recording_id
+
+    # 按开始时间倒序，排除当前，取最近 limit 条
+    records = EEGRecord.objects.exclude(recording_id=exclude_uuid).order_by('-start_time')[:limit]
+    historical = []
+    for rec in records:
+        metrics = compute_sleep_metrics(rec)
+        historical.append({
+            'recording_id': str(rec.recording_id),
+            'start_time': rec.start_time,
+            'delta_pct': metrics['delta_pct'],
+            'theta_pct': metrics['theta_pct'],
+            'alpha_pct': metrics['alpha_pct'],
+            'beta_pct': metrics['beta_pct'],
+            'gamma_pct': metrics['gamma_pct'],
+            'sleep_score': metrics['sleep_score']
+        })
+    return historical
+
+
+# ========== 辅助函数结束 ==========
+
 
 def runoob(request):
     context = {}
@@ -494,41 +601,46 @@ def _save_eeg_json_data_to_db(json_data):
 
       从数据库分析
     """
- 
+
+
 @csrf_exempt
 def analyze_existing_data(request):
     """分析已有的数据文件"""
     logger.info(f"收到分析请求: {request.method}")
-    
+
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': '只支持POST请求'}, status=400)
-    
+
     try:
         data = json.loads(request.body)
         recording_id = data.get('recording_id')
-        api_key = data.get('api_key', '51e09aa5-d2dd-41ab-bf91-51ef798844e7')
-        
+        api_key = data.get('api_key', '51e09aa5-d2dd-41ab-bf91-51ef798844e7')  # 注意：settings 中需定义 DEFAULT_API_KEY
+
         if not recording_id:
             return JsonResponse({'status': 'error', 'message': '缺少 recording_id 参数'}, status=400)
-        
+
         # 验证recording_id格式
         try:
             uuid.UUID(str(recording_id))
         except ValueError:
             return JsonResponse({'status': 'error', 'message': '无效的 recording_id 格式'}, status=400)
-        
+
         # 从数据库获取记录并生成临时文件
         from .models import EEGRecord, EEGDataPoint
         import tempfile
         import os
         from django.conf import settings
-        
+
         record = EEGRecord.objects.get(recording_id=recording_id)
         data_points = EEGDataPoint.objects.filter(recording=record).order_by('time')
-        
+
         if not data_points.exists():
             return JsonResponse({'status': 'error', 'message': '指定的记录没有数据'}, status=400)
-        
+
+        # ================== 新增：获取历史记录（排除当前） ==================
+        historical_records = get_historical_records(recording_id, limit=5)
+        # ================================================================
+
         # 创建临时文件
         temp_dir = os.path.join(settings.BASE_DIR, 'logs')
         os.makedirs(temp_dir, exist_ok=True)
@@ -536,34 +648,31 @@ def analyze_existing_data(request):
 
         with open(temp_file_path, 'w', encoding='utf-8') as f:
             for point in data_points:
-                # 合并 Low 和 High 波段为单一值（可根据需求选择平均、总和或只取 Low）
-                alpha = (point.low_alpha + point.high_alpha) // 2  # 取平均值，保留整数
+                # 合并 Low 和 High 波段为单一值（取平均值，保持整数）
+                alpha = (point.low_alpha + point.high_alpha) // 2
                 beta = (point.low_beta + point.high_beta) // 2
                 gamma = (point.low_gamma + point.high_gamma) // 2
-
-                # 写入与实时日志完全一致的格式
                 line = f"{point.time.strftime('%Y-%m-%d %H:%M:%S')} - Delta {point.delta} Theta {point.theta} Alpha {alpha} Beta {beta} Gamma {gamma}\n"
                 f.write(line)
-        
+
         file_path = temp_file_path
-        
-        # 执行分析
-        analyzer = EEGAnalyzer(file_path, api_key)
+
+        # 执行分析（传入历史记录）
+        analyzer = EEGAnalyzer(file_path, api_key, historical_records=historical_records)
         result = analyzer.analyze()
-        
+
         # 删除临时文件
         if 'temp_analysis_data_' in file_path:
             try:
                 os.remove(file_path)
             except Exception as e:
                 logger.warning(f"删除临时文件失败: {str(e)}")
-        
-        # 返回分析结果（包含报告内容）
+
+        # 返回分析结果（与原有逻辑一致）
         if isinstance(result, dict):
             if result.get('status') == 'error':
                 return JsonResponse(result, status=400 if '不存在' in result.get('message', '') else 500)
             else:
-                # 如果result包含报告内容，直接返回
                 if 'report_content' in result:
                     return JsonResponse({
                         'status': 'success',
@@ -572,14 +681,13 @@ def analyze_existing_data(request):
                         'message': result.get('message', '分析完成')
                     })
                 else:
-                    # 否则返回报告文件名，让前端去获取
                     return JsonResponse({
                         'status': 'success',
                         'report_filename': result.get('report_filename'),
                         'message': result.get('message', '分析完成')
                     })
         else:
-            # 兼容旧版本返回元组的情况
+            # 兼容旧版本
             report_content, report_filename = result
             return JsonResponse({
                 'status': 'success',
@@ -587,7 +695,7 @@ def analyze_existing_data(request):
                 'report_filename': report_filename,
                 'message': '分析完成'
             })
-        
+
     except json.JSONDecodeError as e:
         return JsonResponse({'status': 'error', 'message': '请求数据格式错误'}, status=400)
     except Exception as e:
