@@ -600,6 +600,18 @@ class EEGAnalyzer:
                             transform: translateY(-2px);
                             box-shadow: 0 12px 25px rgba(0,0,0,0.3);
                         }}
+                        /* 数据统计概览 + 睡眠阶段分布 同一行两栏 */
+                        .report-row-two {{
+                            display: grid;
+                            grid-template-columns: 1fr 1fr;
+                            gap: 20px;
+                            align-items: stretch;
+                            margin: 25px 0;
+                        }}
+                        .report-row-two > .section_compant {{
+                            margin: 0;
+                            min-width: 0;
+                        }}
                         /* 标题样式统一 */
                         .biaoti {{
                             color: #ffd966;
@@ -650,22 +662,24 @@ class EEGAnalyzer:
                         .stats-table_compant tbody tr:nth-child(even) {{
                             background: rgba(255,255,255,0.03);
                         }}
-                        /* 睡眠分析列表优化 */
+                        /* 睡眠阶段分布：两列网格，一行两个 */
                         .sleep-analysis ul {{
                             list-style: none;
                             padding: 0;
                             margin: 20px 0;
-                            display: flex;
-                            flex-wrap: wrap;
+                            display: grid;
+                            grid-template-columns: repeat(2, minmax(0, 1fr));
                             gap: 12px;
                         }}
                         .sleep-analysis li {{
                             background: rgba(255,255,255,0.15);
-                            padding: 8px 18px;
+                            padding: 10px 16px;
                             border-radius: 40px;
                             font-size: 0.9rem;
                             backdrop-filter: blur(4px);
                             transition: background 0.2s;
+                            min-width: 0;
+                            text-align: center;
                         }}
                         .sleep-analysis li:hover {{
                             background: rgba(255,255,255,0.25);
@@ -721,14 +735,23 @@ class EEGAnalyzer:
                             .section_compant {{
                                 padding: 18px;
                             }}
+                            .report-row-two {{
+                                grid-template-columns: 1fr;
+                                gap: 16px;
+                                margin: 18px 0;
+                            }}
                             .stats-table_compant th,
                             .stats-table_compant td {{
                                 padding: 8px 10px;
                                 font-size: 0.75rem;
                             }}
+                            .sleep-analysis ul {{
+                                grid-template-columns: repeat(2, minmax(0, 1fr));
+                                gap: 10px;
+                            }}
                             .sleep-analysis li {{
                                 font-size: 0.75rem;
-                                padding: 5px 12px;
+                                padding: 8px 10px;
                             }}
                             .biaoti {{
                                 font-size: 1.3rem;
@@ -779,11 +802,12 @@ class EEGAnalyzer:
                             <p>生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | 文件: {os.path.basename(self.file_path)}</p>
                         </div>
                 
-                        <div class="section_compant">{stats}</div>
-                
-                        <div class="section_compant">
-                            {sleep_analysis}
-                             <div id="sleepPieChart" style="width: 100%; height: 400px; min-height: 400px;"></div>
+                        <div class="report-row-two">
+                            <div class="section_compant">{stats}</div>
+                            <div class="section_compant">
+                                {sleep_analysis}
+                                <div id="sleepPieChart" style="width: 100%; height: 360px; min-height: 260px;"></div>
+                            </div>
                         </div>
                 
                         {compare_html}   <!-- 对比分析部分已包含内部样式和图表容器 -->
@@ -806,8 +830,8 @@ class EEGAnalyzer:
                             series: [{{
                                 name: '睡眠阶段',
                                 type: 'pie',
-                                radius: '55%',
-                                center: ['60%', '50%'],
+                                radius: '58%',
+                                center: ['50%', '50%'],
                                 data: [
                                     {{ value: {current_pct['Delta']:.1f}, name: '深睡期 (Delta)' }},
                                     {{ value: {current_pct['Theta']:.1f}, name: '浅睡期 (Theta)' }},
