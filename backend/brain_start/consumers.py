@@ -134,19 +134,6 @@ def create_new_log_file():
     return new_file
 
 
-def _parse_eeg_timestamp(timestamp_str):
-    """解析前端 ISO 时间戳；USE_TZ=False 时转为 naive datetime 以兼容 SQLite。"""
-    from django.utils.dateparse import parse_datetime
-    from django.utils import timezone
-
-    timestamp = parse_datetime(timestamp_str) if timestamp_str else None
-    if timestamp is None:
-        return timezone.now()
-    if timezone.is_aware(timestamp):
-        return timezone.make_naive(timestamp)
-    return timestamp
-
-
 # 初始化日志文件
 init_log_file()
 
@@ -194,7 +181,7 @@ class EEGDataConsumer(AsyncWebsocketConsumer):
             eeg_data = data.get('data', {})
             if isinstance(eeg_data, dict):
                 # 处理字典格式数据
-                logging.info(f"处理字典格式数据:{eeg_data}")
+                logging.info("处理字典格式数据:{eeg_data}")
                 formatted_data = f"Delta {eeg_data.get('Delta', 0)} Theta {eeg_data.get('Theta', 0)} Alpha {eeg_data.get('Alpha', 0)} Beta {eeg_data.get('Beta', 0)} Gamma {eeg_data.get('Gamma', 0)}"
                 # 提取各波段数值用于数据库存储
                 delta = eeg_data.get('Delta', 0)
@@ -204,7 +191,7 @@ class EEGDataConsumer(AsyncWebsocketConsumer):
                 gamma = eeg_data.get('Gamma', 0)
             elif isinstance(eeg_data, str):
                 # 处理字符串格式数据（来自蓝牙设备的原始数据）
-                logging.info(f"处理字符串格式数据:{eeg_data}")
+                logging.info("处理字符串格式数据:{eeg_data}")
                 # 检查是否为TGAM数据包格式
                 if eeg_data.startswith('AA AA'):
                     # 解析TGAM数据包
@@ -231,9 +218,14 @@ class EEGDataConsumer(AsyncWebsocketConsumer):
             # 如果正在记录，则将数据写入数据库
             if current_recording is not None:
                 logger.info(f"尝试保存数据点到数据库，记录ID: {current_recording.recording_id}")
+                from django.utils.dateparse import parse_datetime
                 from asgiref.sync import sync_to_async
-
-                timestamp = _parse_eeg_timestamp(data.get('timestamp'))
+                from django.utils import timezone
+                
+                # 创建数据点
+                timestamp = parse_datetime(data['timestamp'])
+                if timestamp is None:
+                    timestamp = timezone.now()
                 
                 # 延迟导入模型以避免Django配置问题
                 from .models import EEGDataPoint

@@ -13,7 +13,6 @@
     "@types/axios": "^0.9.36",
     "axios": "^1.7.9",
     "blueimp-md5": "^2.19.0",
-    "echarts": "^6.1.0",
     "element-plus": "^2.13.6",
     "pinia": "^3.0.4",
     "pinia-plugin-persistedstate": "^4.7.1",
