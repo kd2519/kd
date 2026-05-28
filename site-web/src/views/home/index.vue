@@ -29,9 +29,14 @@
       <div class="welcome-card">
         <h2>欢迎回来，{{ userInfo.name || userInfo.username }}！</h2>
         <p>你已经登录成功，可以开始使用了。</p>
-        <el-button type="primary" @click="goToEeg" style="margin-top: 20px;">
-          进入 EEG 睡眠分析系统
-        </el-button>
+        <div class="action-buttons">
+          <el-button type="primary" @click="goToEegMonitor">
+            实时脑电监测
+          </el-button>
+          <el-button @click="goToEeg">
+            EEG 睡眠分析系统
+          </el-button>
+        </div>
       </div>
     </div>
 
@@ -100,6 +105,10 @@ const router = useRouter()
 
 const goToEeg = () => {
   router.push('/eeg')
+}
+
+const goToEegMonitor = () => {
+  router.push('/eeg/monitor')
 }
 // 用户信息
 const userInfo = ref<UserInfo>({
@@ -323,6 +332,14 @@ onMounted(() => {
   p {
     color: #7f8c8d;
     font-size: 16px;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 20px;
+    flex-wrap: wrap;
   }
 }
 

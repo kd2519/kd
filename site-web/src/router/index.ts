@@ -9,6 +9,7 @@ const router = createRouter({
     { path: '/forgot-password', component: () => import('@/views/system/password/index.vue') },
     // 新增 EEG 测试页面，需要登录
     { path: '/eeg', component: () => import('@/views/eeg/EEGHome.vue'), meta: { requiresAuth: true } },
+    { path: '/eeg/monitor', component: () => import('@/views/eeg/monitor/EEGMonitor.vue'), meta: { requiresAuth: true } },
   ],
 })
 
