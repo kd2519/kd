@@ -66,7 +66,7 @@ export default {
     return {
       currentRecordingId: null,
       bgStyle: {
-        backgroundImage: 'linear-gradient(to right, rgba(0, 0, 70, 0.3), rgba(28, 181, 224, 0.3)), url("/背景鲸鱼.jpg")',
+        backgroundImage: 'linear-gradient(to right, rgba(0, 0, 70, 0.3), rgba(28, 181, 224, 0.3)), url("/background.jpg")',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',

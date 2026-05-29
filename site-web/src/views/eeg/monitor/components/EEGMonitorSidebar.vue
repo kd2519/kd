@@ -97,8 +97,8 @@ const tableRows = computed(() => {
 .monitor-sidebar {
   width: 280px;
   flex-shrink: 0;
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border: 1px solid #dde4ee;
   border-radius: 8px;
   padding: 16px;
   display: flex;
@@ -125,9 +125,17 @@ const tableRows = computed(() => {
 }
 
 .data-table :deep(.el-table__header th) {
-  background: #f8fafc;
+  background: #f1f5f9;
   color: #64748b;
   font-weight: 600;
+}
+
+.data-table :deep(.el-table__body tr) {
+  background: #f8fafc;
+}
+
+.data-table :deep(.el-table__body tr.el-table__row--striped td.el-table__cell) {
+  background: #f1f5f9;
 }
 
 .sidebar-actions {

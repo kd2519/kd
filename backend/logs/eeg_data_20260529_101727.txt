@@ -1,0 +1,5 @@
+2026-05-29T02:17:27.247Z - Raw 378 SignalQuality 164 Attention 51 Meditation 79 Delta 3232 Theta 2467 LowAlpha 2046 HighAlpha 1836 LowBeta 3310 HighBeta 2883 LowGamma 1291 HighGamma 1109
+2026-05-29T02:17:28.238Z - Raw 881 SignalQuality 180 Attention 57 Meditation 77 Delta 3768 Theta 2932 LowAlpha 2338 HighAlpha 1999 LowBeta 3532 HighBeta 3193 LowGamma 1393 HighGamma 1282
+2026-05-29T02:17:29.241Z - Raw 1062 SignalQuality 170 Attention 69 Meditation 66 Delta 4121 Theta 3187 LowAlpha 2445 HighAlpha 2290 LowBeta 3935 HighBeta 3285 LowGamma 1635 HighGamma 1373
+2026-05-29T02:17:30.241Z - Raw 951 SignalQuality 171 Attention 69 Meditation 67 Delta 4017 Theta 3140 LowAlpha 2691 HighAlpha 2322 LowBeta 4005 HighBeta 3364 LowGamma 1647 HighGamma 1426
+2026-05-29T02:17:31.241Z - Raw 916 SignalQuality 162 Attention 74 Meditation 59 Delta 4174 Theta 3198 LowAlpha 2649 HighAlpha 2374 LowBeta 3988 HighBeta 3451 LowGamma 1659 HighGamma 1437

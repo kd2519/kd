@@ -179,8 +179,8 @@ function handleExport() {
   align-items: center;
   justify-content: space-between;
   padding: 12px 20px;
-  background: #fff;
-  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-bottom: 1px solid #dde4ee;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
@@ -280,8 +280,8 @@ function handleExport() {
   padding: 10px 20px;
   font-size: 12px;
   color: #64748b;
-  background: #fff;
-  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-top: 1px solid #dde4ee;
 }
 
 .mock-tag {

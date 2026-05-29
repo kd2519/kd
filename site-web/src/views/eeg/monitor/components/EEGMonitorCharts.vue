@@ -36,6 +36,15 @@ let rawChart: echarts.ECharts | null = null
 let bandChart: echarts.ECharts | null = null
 let mentalChart: echarts.ECharts | null = null
 
+const CHART_THEME = {
+  backgroundColor: '#f1f5f9',
+  axisLine: '#94a3b8',
+  axisLabel: '#64748b',
+  splitLine: '#dde4ee',
+  legend: '#64748b',
+  barLabel: '#475569',
+}
+
 function initCharts() {
   if (rawChartRef.value) rawChart = echarts.init(rawChartRef.value)
   if (bandChartRef.value) bandChart = echarts.init(bandChartRef.value)
@@ -49,25 +58,26 @@ function updateRawChart() {
   const values = props.history.map((s) => s.raw)
 
   rawChart.setOption({
+    backgroundColor: CHART_THEME.backgroundColor,
     animation: false,
     grid: { left: 56, right: 24, top: 36, bottom: 32 },
     tooltip: { trigger: 'axis' },
-    legend: { data: ['RawWave'], top: 4, right: 16, textStyle: { color: '#64748b', fontSize: 12 } },
+    legend: { data: ['RawWave'], top: 4, right: 16, textStyle: { color: CHART_THEME.legend, fontSize: 12 } },
     xAxis: {
       type: 'category',
       boundaryGap: false,
       data: times,
-      axisLine: { lineStyle: { color: '#cbd5e1' } },
-      axisLabel: { color: '#64748b', fontSize: 11 },
-      splitLine: { show: true, lineStyle: { color: '#e2e8f0', type: 'dashed' } },
+      axisLine: { lineStyle: { color: CHART_THEME.axisLine } },
+      axisLabel: { color: CHART_THEME.axisLabel, fontSize: 11 },
+      splitLine: { show: true, lineStyle: { color: CHART_THEME.splitLine, type: 'dashed' } },
     },
     yAxis: {
       type: 'value',
       min: -1500,
       max: 1500,
-      axisLine: { show: true, lineStyle: { color: '#cbd5e1' } },
-      axisLabel: { color: '#64748b' },
-      splitLine: { lineStyle: { color: '#e2e8f0' } },
+      axisLine: { show: true, lineStyle: { color: CHART_THEME.axisLine } },
+      axisLabel: { color: CHART_THEME.axisLabel },
+      splitLine: { lineStyle: { color: CHART_THEME.splitLine } },
     },
     series: [
       {
@@ -90,6 +100,7 @@ function updateBandChart() {
   const colors = EEG_BAND_LABELS.map((b) => b.color)
 
   bandChart.setOption({
+    backgroundColor: CHART_THEME.backgroundColor,
     animation: true,
     animationDuration: 300,
     grid: { left: 48, right: 24, top: 40, bottom: 36 },
@@ -97,14 +108,14 @@ function updateBandChart() {
     xAxis: {
       type: 'category',
       data: labels,
-      axisLabel: { color: '#64748b', fontSize: 11, rotate: 20 },
-      axisLine: { lineStyle: { color: '#cbd5e1' } },
+      axisLabel: { color: CHART_THEME.axisLabel, fontSize: 11, rotate: 20 },
+      axisLine: { lineStyle: { color: CHART_THEME.axisLine } },
     },
     yAxis: {
       type: 'value',
-      axisLine: { show: true, lineStyle: { color: '#cbd5e1' } },
-      axisLabel: { color: '#64748b' },
-      splitLine: { lineStyle: { color: '#e2e8f0' } },
+      axisLine: { show: true, lineStyle: { color: CHART_THEME.axisLine } },
+      axisLabel: { color: CHART_THEME.axisLabel },
+      splitLine: { lineStyle: { color: CHART_THEME.splitLine } },
     },
     series: [
       {
@@ -117,7 +128,7 @@ function updateBandChart() {
         label: {
           show: true,
           position: 'top',
-          color: '#475569',
+          color: CHART_THEME.barLabel,
           fontSize: 11,
         },
       },
@@ -133,28 +144,29 @@ function updateMentalChart() {
   const none = props.history.map((s) => Math.max(0, 100 - s.attention - s.meditation))
 
   mentalChart.setOption({
+    backgroundColor: CHART_THEME.backgroundColor,
     animation: false,
     grid: { left: 56, right: 24, top: 40, bottom: 32 },
     tooltip: { trigger: 'axis' },
     legend: {
       data: ['None', 'Attention', 'Meditation'],
       top: 4,
-      textStyle: { color: '#64748b', fontSize: 12 },
+      textStyle: { color: CHART_THEME.legend, fontSize: 12 },
     },
     xAxis: {
       type: 'category',
       boundaryGap: false,
       data: times,
-      axisLine: { lineStyle: { color: '#cbd5e1' } },
-      axisLabel: { color: '#64748b', fontSize: 11 },
-      splitLine: { show: true, lineStyle: { color: '#e2e8f0', type: 'dashed' } },
+      axisLine: { lineStyle: { color: CHART_THEME.axisLine } },
+      axisLabel: { color: CHART_THEME.axisLabel, fontSize: 11 },
+      splitLine: { show: true, lineStyle: { color: CHART_THEME.splitLine, type: 'dashed' } },
     },
     yAxis: {
       type: 'value',
       max: 100,
-      axisLine: { show: true, lineStyle: { color: '#cbd5e1' } },
-      axisLabel: { color: '#64748b' },
-      splitLine: { lineStyle: { color: '#e2e8f0' } },
+      axisLine: { show: true, lineStyle: { color: CHART_THEME.axisLine } },
+      axisLabel: { color: CHART_THEME.axisLabel },
+      splitLine: { lineStyle: { color: CHART_THEME.splitLine } },
     },
     series: [
       {
@@ -235,11 +247,11 @@ onUnmounted(() => {
 .chart-panel {
   flex: 1;
   min-height: 0;
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border: 1px solid #dde4ee;
   border-radius: 8px;
   padding: 8px 12px 4px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   display: flex;
   flex-direction: column;
 }
@@ -247,7 +259,7 @@ onUnmounted(() => {
 .chart-title {
   font-size: 13px;
   font-weight: 600;
-  color: #334155;
+  color: #475569;
   margin-bottom: 4px;
   padding-left: 4px;
 }
@@ -255,6 +267,8 @@ onUnmounted(() => {
 .chart-box {
   flex: 1;
   min-height: 160px;
+  background: #f1f5f9;
+  border-radius: 6px;
 }
 
 .chart-box--sm {
