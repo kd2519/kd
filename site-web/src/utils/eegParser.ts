@@ -27,13 +27,17 @@ function setSampleValue(sample: EEGSample, key: keyof EEGSample, value: number) 
   sample[key] = value
 }
 
-export function parseEEGDataPayload(data: string | Record<string, number>): EEGSample {
+export function parseEEGDataPayload(data: string | Record<string, number | string>): EEGSample {
   const sample = EMPTY_EEG_SAMPLE()
   sample.timestamp = new Date().toISOString()
 
   if (typeof data === 'object' && data !== null) {
     Object.entries(data).forEach(([key, value]) => {
-      const mapped = KEY_MAP[key.toLowerCase()]
+      if (key === 'timestamp') {
+        sample.timestamp = String(value)
+        return
+      }
+      const mapped = KEY_MAP[key.toLowerCase().replace(/\s+/g, '')]
       if (mapped) setSampleValue(sample, mapped, Number(value) || 0)
     })
     return sample

@@ -247,11 +247,12 @@ onUnmounted(() => {
 .chart-panel {
   flex: 1;
   min-height: 0;
-  background: #f8fafc;
-  border: 1px solid #dde4ee;
+  background: rgba(248, 250, 252, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.35);
   border-radius: 8px;
   padding: 8px 12px 4px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.2);
+  backdrop-filter: blur(12px);
   display: flex;
   flex-direction: column;
 }

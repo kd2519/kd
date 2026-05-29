@@ -147,6 +147,42 @@ def _parse_eeg_timestamp(timestamp_str):
     return timestamp
 
 
+def _extract_eeg_fields_from_dict(eeg_data):
+    """从蓝牙 dict 提取 8 频段与注意力等指标。"""
+
+    def pick(*keys):
+        for key in keys:
+            if key in eeg_data and eeg_data[key] is not None:
+                return eeg_data[key]
+        return 0
+
+    return {
+        'delta': int(pick('Delta', 'delta')),
+        'theta': int(pick('Theta', 'theta')),
+        'low_alpha': int(pick('Low Alpha', 'LowAlpha', 'low_alpha')),
+        'high_alpha': int(pick('High Alpha', 'HighAlpha', 'high_alpha')),
+        'low_beta': int(pick('Low Beta', 'LowBeta', 'low_beta')),
+        'high_beta': int(pick('High Beta', 'HighBeta', 'high_beta')),
+        'low_gamma': int(pick('Low Gamma', 'LowGamma', 'low_gamma')),
+        'high_gamma': int(pick('Middle Gamma', 'HighGamma', 'high_gamma')),
+        'attention': int(pick('attention', 'Attention')),
+        'meditation': int(pick('meditation', 'Meditation')),
+        'signal_quality': int(pick('signalQuality', 'SignalQuality', 'signal_quality')),
+    }
+
+
+def _format_dict_for_log(eeg_data):
+    fields = _extract_eeg_fields_from_dict(eeg_data)
+    return (
+        f"Delta {fields['delta']} Theta {fields['theta']} "
+        f"LowAlpha {fields['low_alpha']} HighAlpha {fields['high_alpha']} "
+        f"LowBeta {fields['low_beta']} HighBeta {fields['high_beta']} "
+        f"LowGamma {fields['low_gamma']} HighGamma {fields['high_gamma']} "
+        f"Attention {fields['attention']} Meditation {fields['meditation']} "
+        f"SignalQuality {fields['signal_quality']}"
+    )
+
+
 # 初始化日志文件
 init_log_file()
 
@@ -193,15 +229,23 @@ class EEGDataConsumer(AsyncWebsocketConsumer):
             # 写入数据，格式化为与分析器兼容的格式
             eeg_data = data.get('data', {})
             if isinstance(eeg_data, dict):
-                # 处理字典格式数据
                 logging.info(f"处理字典格式数据:{eeg_data}")
-                formatted_data = f"Delta {eeg_data.get('Delta', 0)} Theta {eeg_data.get('Theta', 0)} Alpha {eeg_data.get('Alpha', 0)} Beta {eeg_data.get('Beta', 0)} Gamma {eeg_data.get('Gamma', 0)}"
-                # 提取各波段数值用于数据库存储
-                delta = eeg_data.get('Delta', 0)
-                theta = eeg_data.get('Theta', 0)
-                alpha = eeg_data.get('Alpha', 0)
-                beta = eeg_data.get('Beta', 0)
-                gamma = eeg_data.get('Gamma', 0)
+                formatted_data = _format_dict_for_log(eeg_data)
+                fields = _extract_eeg_fields_from_dict(eeg_data)
+                delta = fields['delta']
+                theta = fields['theta']
+                alpha = fields['low_alpha']
+                beta = fields['low_beta']
+                gamma = fields['low_gamma']
+                low_alpha = fields['low_alpha']
+                high_alpha = fields['high_alpha']
+                low_beta = fields['low_beta']
+                high_beta = fields['high_beta']
+                low_gamma = fields['low_gamma']
+                high_gamma = fields['high_gamma']
+                attention = fields['attention']
+                meditation = fields['meditation']
+                signal_quality = fields['signal_quality']
             elif isinstance(eeg_data, str):
                 # 处理字符串格式数据（来自蓝牙设备的原始数据）
                 logging.info(f"处理字符串格式数据:{eeg_data}")
@@ -215,9 +259,16 @@ class EEGDataConsumer(AsyncWebsocketConsumer):
                     
                 # 从格式化数据中提取各波段数值
                 delta, theta, alpha, beta, gamma = self._extract_bands_from_formatted(formatted_data)
+                low_alpha = high_alpha = alpha
+                low_beta = high_beta = beta
+                low_gamma = high_gamma = gamma
+                attention = meditation = 0
+                signal_quality = 0
             else:
                 formatted_data = str(eeg_data)
                 delta = theta = alpha = beta = gamma = 0
+                low_alpha = high_alpha = low_beta = high_beta = low_gamma = high_gamma = 0
+                attention = meditation = signal_quality = 0
             
             with open(current_log_file, "a", encoding="utf-8") as f:
                 f.write(f"{data['timestamp']} - {formatted_data}\n")
@@ -244,15 +295,15 @@ class EEGDataConsumer(AsyncWebsocketConsumer):
                     time=timestamp,
                     delta=delta,
                     theta=theta,
-                    low_alpha=alpha,
-                    low_beta=beta,
-                    low_gamma=gamma,
-                    high_alpha=alpha,
-                    high_beta=beta,
-                    high_gamma=gamma,
-                    attention=0,  # 注意力和冥想度暂设为0，可以根据需要调整
-                    meditation=0,
-                    signal_quality=0
+                    low_alpha=low_alpha,
+                    low_beta=low_beta,
+                    low_gamma=low_gamma,
+                    high_alpha=high_alpha,
+                    high_beta=high_beta,
+                    high_gamma=high_gamma,
+                    attention=attention,
+                    meditation=meditation,
+                    signal_quality=signal_quality
                 )
                 logger.info(f"成功创建数据点，ID: {data_point.id}")
                 

@@ -97,8 +97,9 @@ const tableRows = computed(() => {
 .monitor-sidebar {
   width: 280px;
   flex-shrink: 0;
-  background: #f8fafc;
-  border: 1px solid #dde4ee;
+  background: rgba(248, 250, 252, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  backdrop-filter: blur(12px);
   border-radius: 8px;
   padding: 16px;
   display: flex;

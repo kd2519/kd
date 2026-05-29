@@ -1,6 +1,9 @@
 <template>
   <div class="app-container eeg-home" :style="bgStyle">
     <EEGHomePageHeader />
+    <div class="page-nav-wrap">
+      <EEGPageNav current="analysis" />
+    </div>
     <EEGHomeStatusBar
       :is-connected="isConnected"
       :is-recording="isRecording"
@@ -48,15 +51,19 @@
 
 <script>
 import EEGHomePageHeader from './components/EEGHomePageHeader.vue';
+import EEGPageNav from './components/EEGPageNav.vue';
 import EEGHomeStatusBar from './components/EEGHomeStatusBar.vue';
 import EEGHomeActionToolbar from './components/EEGHomeActionToolbar.vue';
 import EEGHomeSidebar from './components/EEGHomeSidebar.vue';
 import EEGHomeMainPanel from './components/EEGHomeMainPanel.vue';
+import { createBluetoothEEG } from '@/services/bluetoothEEG';
+import { sampleToBackendDict } from '@/utils/tgamBluetoothParser';
 
 export default {
   name: 'EEGHome',
   components: {
     EEGHomePageHeader,
+    EEGPageNav,
     EEGHomeStatusBar,
     EEGHomeActionToolbar,
     EEGHomeSidebar,
@@ -66,7 +73,7 @@ export default {
     return {
       currentRecordingId: null,
       bgStyle: {
-        backgroundImage: 'linear-gradient(to right, rgba(0, 0, 70, 0.3), rgba(28, 181, 224, 0.3)), url("/background.jpg")',
+        backgroundImage: 'linear-gradient(to right, rgba(0, 0, 40, 0.72), rgba(15, 23, 42, 0.68)), url("/background.jpg")',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
@@ -88,12 +95,22 @@ export default {
       historyFiles: [],
       importedFileName: '',
       currentFilePath: '',
-      eegTimer: null,
+      bluetoothEEG: null,
     };
+  },
+  created() {
+    this.bluetoothEEG = createBluetoothEEG({
+      shouldEmit: () => this.isRecording,
+      onSample: (sample) => this.sendRealEEGData(sample),
+    });
+  },
+  mounted() {
+    this.initWebSocket();
+    this.testBackend();
   },
   beforeDestroy() {
     if (this.websocket) this.websocket.close();
-    if (this.eegTimer) clearTimeout(this.eegTimer);
+    this.bluetoothEEG?.disconnectBluetooth();
   },
   computed: {
     reportPreviewTitle() {
@@ -164,37 +181,86 @@ export default {
     },
     connectDevice() {
       if (this.isConnected) {
-        this.$message.info('后端已连接');
+        this.disconnectDevice();
         return;
       }
-      if (!this.bluetoothConnected) {
-        this.$message.warning('请先扫描并配对蓝牙设备');
+      if (!this.bluetoothEEG?.bluetoothDevice.value) {
+        this.$message.warning('请先扫描蓝牙设备');
         return;
       }
+      this.connectBluetoothAndService();
+    },
+    async connectBluetoothAndService() {
       try {
-        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-        const wsUrl = `${protocol}${window.location.host}/ws/eeg/`;
-        this.websocket = new WebSocket(wsUrl);
-        this.websocket.onopen = () => {
-          this.isConnected = true;
-          this.deviceStatus = '已连接';
-          this.$message.success('设备连接成功');
-        };
-        this.websocket.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          this.handleWebSocketMessage(data);
-        };
-        this.websocket.onclose = () => {
-          this.isConnected = false;
-          this.isRecording = false;
-          this.deviceStatus = '未连接';
-          this.$message.info('设备连接已断开');
-        };
-        this.websocket.onerror = (error) => {
-          this.$message.error('连接发生错误: ' + error.message);
-        };
+        this.$message.info('正在连接蓝牙设备...');
+        await this.bluetoothEEG.connectBluetooth();
+        this.bluetoothConnected = true;
+        if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) {
+          await this.initWebSocket();
+        }
+        this.isConnected = true;
+        this.deviceStatus = '已连接';
+        this.deviceAddress = this.bluetoothEEG.deviceAddress.value;
+        this.$message.success('蓝牙设备连接成功');
       } catch (error) {
-        this.$message.error('连接失败: ' + error.message);
+        this.$message.error(`连接失败: ${error.message}`);
+        this.logContent += `[${new Date().toLocaleTimeString()}] 蓝牙设备连接失败: ${error.message}\n`;
+      }
+    },
+    async disconnectDevice() {
+      try {
+        await this.bluetoothEEG?.disconnectBluetooth();
+      } catch {
+        // ignore
+      }
+      if (this.websocket) {
+        this.websocket.close();
+        this.websocket = null;
+      }
+      this.isConnected = false;
+      this.bluetoothConnected = false;
+      this.isRecording = false;
+      this.deviceStatus = '未连接';
+      this.$message.info('设备已断开');
+    },
+    initWebSocket() {
+      return new Promise((resolve, reject) => {
+        try {
+          const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+          const wsUrl = `${protocol}${window.location.host}/ws/eeg/`;
+          this.websocket = new WebSocket(wsUrl);
+          this.websocket.onopen = () => {
+            this.logContent += `[${new Date().toLocaleTimeString()}] WebSocket连接成功\n`;
+            resolve();
+          };
+          this.websocket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            this.handleWebSocketMessage(data);
+          };
+          this.websocket.onclose = () => {
+            this.logContent += `[${new Date().toLocaleTimeString()}] WebSocket连接已断开\n`;
+          };
+          this.websocket.onerror = (error) => {
+            reject(error);
+          };
+        } catch (error) {
+          reject(error);
+        }
+      });
+    },
+    sendRealEEGData(sample) {
+      if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) return;
+      const eegData = {
+        type: 'eeg_data',
+        timestamp: sample.timestamp,
+        data: sampleToBackendDict(sample),
+      };
+      try {
+        this.websocket.send(JSON.stringify(eegData));
+        this.dataStatus = '正在记录数据...';
+        this.signalQuality = `${sample.signalQuality} /200`;
+      } catch (error) {
+        this.$message.error('发送数据失败: ' + error.message);
       }
     },
     loadReport(filename) {
@@ -225,41 +291,43 @@ export default {
     startRecording() {
       if (this.isRecording) {
         this.isRecording = false;
-        if (this.eegTimer) {
-          clearTimeout(this.eegTimer);
-          this.eegTimer = null;
+        const stopRecordMsg = { type: 'stop_recording' };
+        try {
+          if (this.websocket?.readyState === WebSocket.OPEN) {
+            this.websocket.send(JSON.stringify(stopRecordMsg));
+          }
+          this.$message.info('已停止记录数据');
+          this.dataStatus = '记录已停止';
+        } catch (error) {
+          this.$message.error('发送停止记录指令失败: ' + error.message);
         }
-        this.$message.info('已停止记录数据');
-        this.dataStatus = '记录已停止';
-      } else {
-        this.currentRecordingId = null;
-        if (!this.isConnected) {
-          this.$message.warning('请先连接设备');
-          return;
-        }
+        return;
+      }
+
+      this.currentRecordingId = null;
+      if (!this.isConnected) {
+        this.$message.warning('请先连接设备');
+        return;
+      }
+      if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) {
+        this.$message.warning('WebSocket连接未建立');
+        return;
+      }
+
+      const startRecordMsg = {
+        type: 'start_recording',
+        name: `EEG_Recording_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}`,
+        description: '实时EEG数据记录',
+      };
+
+      try {
+        this.websocket.send(JSON.stringify(startRecordMsg));
         this.isRecording = true;
         this.$message.success('开始记录数据');
-        this.sendEEGData();
-      }
-    },
-    sendEEGData() {
-      if (!this.isRecording || !this.isConnected) return;
-      const eegData = {
-        type: 'eeg_data',
-        timestamp: new Date().toISOString(),
-        data: this.generateMockEEGData(),
-      };
-      try {
-        this.websocket.send(JSON.stringify(eegData));
         this.dataStatus = '正在记录数据...';
       } catch (error) {
-        this.$message.error('发送数据失败: ' + error.message);
+        this.$message.error('发送开始记录指令失败: ' + error.message);
       }
-      this.eegTimer = setTimeout(() => this.sendEEGData(), 1000);
-    },
-    generateMockEEGData() {
-      const bands = ['Delta', 'Theta', 'Alpha', 'Beta', 'Gamma'];
-      return bands.map((band) => `${band} ${Math.floor(Math.random() * 100)}`).join(' ');
     },
     analyzeData() {
       if (this.currentRecordingId) {
@@ -370,26 +438,21 @@ export default {
       }
       return true;
     },
-    scanDevices() {
+    async scanDevices() {
       if (!this.checkBluetoothSupport()) return;
-      this.$message.info('正在扫描蓝牙设备...');
-      navigator.bluetooth
-        .requestDevice({
-          acceptAllDevices: true,
-          optionalServices: ['battery_service', 'generic_access', 'device_information'],
-        })
-        .then((device) => {
-          this.$message.success(`找到设备: ${device.name}`);
-          this.deviceAddress = device.id;
-          return device.gatt.connect();
-        })
-        .then(() => {
-          this.$message.success('蓝牙设备配对成功');
-          this.bluetoothConnected = true;
-        })
-        .catch((error) => {
+      try {
+        this.$message.info('正在扫描蓝牙设备...');
+        this.logContent += `[${new Date().toLocaleTimeString()}] 开始扫描蓝牙设备\n`;
+        const name = await this.bluetoothEEG.scanDevices();
+        this.deviceAddress = this.bluetoothEEG.deviceAddress.value;
+        this.$message.success(`找到设备: ${name}`);
+        this.logContent += `[${new Date().toLocaleTimeString()}] 找到蓝牙设备: ${name}\n`;
+      } catch (error) {
+        if (error.name !== 'NotFoundError') {
           this.$message.error(`扫描失败: ${error.message}`);
-        });
+          this.logContent += `[${new Date().toLocaleTimeString()}] 蓝牙设备扫描失败: ${error.message}\n`;
+        }
+      }
     },
     testAPI() {
       if (!this.apiKey) {
@@ -424,6 +487,13 @@ export default {
     },
     handleWebSocketMessage(data) {
       switch (data.type) {
+        case 'recording_status':
+          if (data.status === 'started') {
+            this.currentRecordingId = data.recording_id ?? null;
+          } else if (data.status === 'stopped') {
+            this.currentRecordingId = data.recording_id ?? this.currentRecordingId;
+          }
+          break;
         case 'data_received':
           this.logContent += `[${new Date().toLocaleTimeString()}] 数据已接收: ${data.timestamp}\n`;
           break;
@@ -465,9 +535,6 @@ export default {
       });
     },
   },
-  mounted() {
-    this.testBackend();
-  },
 };
 </script>
 
@@ -497,6 +564,11 @@ export default {
   padding: 24px 20px 32px;
   min-height: 100vh;
   color: #e8eef7;
+}
+.page-nav-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
 }
 .main-content {
   margin-left: auto;
